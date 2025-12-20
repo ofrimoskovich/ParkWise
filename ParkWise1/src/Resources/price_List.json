@@ -1,0 +1,7 @@
+{
+  "parkingLotId": 1,
+  "year": 2025,
+  "firstHourPrice": 15.0,
+  "additionalHourPrice": 10.0,
+  "fullDayPrice": 60.0
+}

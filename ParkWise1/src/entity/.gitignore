@@ -1,0 +1,17 @@
+/Conveyor.class
+/ConveyorStatus.class
+/Customer.class
+/Membership.class
+/ParkingLot.class
+/ParkingSession.class
+/ParkingSpot.class
+/PreferredParkingLot.class
+/PriceHistory.class
+/PriceList.class
+/Receipt.class
+/Size.class
+/Vehicle.class
+/VehicleColor.class
+/VehiclePhoto.class
+/ViewType.class
+/IdGenerator.class
