@@ -1,4 +1,4 @@
-package main;
+package boundary;
 
 import java.io.File;
 import javax.swing.JFileChooser;

@@ -11,6 +11,6 @@
 	<classpathentry kind="lib" path="lib/commons-logging-1.2.jar"/>
 	<classpathentry kind="lib" path="lib/hsqldb-2.5.0.jar"/>
 	<classpathentry kind="lib" path="lib/jackcess-3.0.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/USER/OneDrive/Desktop/ParkWise1_fixed_2025-12-19/ParkWise1/lib/gson-2.10.1 (1).jar"/>
+	<classpathentry kind="lib" path="lib/gson-2.10.1 (1).jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
