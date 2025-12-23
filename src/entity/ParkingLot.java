@@ -5,14 +5,14 @@ public class ParkingLot {
     private final int id;          // ID ייחודי – לא ניתן לשינוי
     private String name;
     private String address;
-    private String city;
+    private City city;
     private int availableSpaces;
 
     public ParkingLot(
             int id,
             String name,
             String address,
-            String city,
+            City city,
             int availableSpaces
     ) {
         this.id = id;
@@ -42,11 +42,11 @@ public class ParkingLot {
         this.address = address;
     }
 
-    public String getCity() {
+    public City getCity() {
         return city;
     }
 
-    public void setCity(String city) {
+    public void setCity(City city) {
         this.city = city;
     }
 
@@ -56,5 +56,9 @@ public class ParkingLot {
 
     public void setAvailableSpaces(int availableSpaces) {
         this.availableSpaces = availableSpaces;
+    }
+    @Override
+    public String toString() {
+        return name + " (" + city + ")";
     }
 }

@@ -57,4 +57,16 @@ public class PriceList {
     public void setFullDayPrice(double fullDayPrice) {
         this.fullDayPrice = fullDayPrice;
     }
+    
+    @Override
+    public String toString() {
+        return "Price List [ID=" + id +
+                ", Year=" + year +
+                ", First Hour=" + firstHourPrice +
+                ", Additional Hour=" + additionalHourPrice +
+                ", Full Day=" + fullDayPrice +
+                "]";
+    }
+  
+
 }

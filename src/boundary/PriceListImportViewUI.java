@@ -1,77 +1,71 @@
 package boundary;
 
-import java.awt.BorderLayout;
-import java.io.File;
-import java.util.Collection;
+import control.PriceListManagementController;
+import entity.PriceList;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-
-import control.PriceListManagementController;
-import entity.PriceList;
+import java.awt.*;
+import java.util.Collection;
+import java.util.List;
 
 public class PriceListImportViewUI extends JPanel {
 
     private final PriceListManagementController controller;
-    private final DefaultTableModel model;
+    private JTable table;
+    private DefaultTableModel model;
 
     public PriceListImportViewUI(PriceListManagementController controller) {
         this.controller = controller;
+        setLayout(new BorderLayout(10, 10));
+        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        setLayout(new BorderLayout());
+        initUI();
+    }
 
-        model = new DefaultTableModel(new Object[] { "ID", "Year", "First Hour", "Additional Hour", "Full Day" }, 0) {
-            private static final long serialVersionUID = 1L;
-            @Override public boolean isCellEditable(int row, int column) { return false; }
+    private void initUI() {
+        JButton loadBtn = new JButton("Load Price List (from system)");
+        loadBtn.addActionListener(e -> loadFromJson());
+
+        add(loadBtn, BorderLayout.NORTH);
+
+        model = new DefaultTableModel(
+                new Object[]{"ID", "Year", "First Hour", "Additional Hour", "Full Day"}, 0
+        ) {
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
 
-        JTable table = new JTable(model);
-        table.setEnabled(false);
+        table = new JTable(model);
         add(new JScrollPane(table), BorderLayout.CENTER);
 
-        JButton importBtn = new JButton("Import Price Lists (JSON)...");
-        JButton refreshBtn = new JButton("Refresh");
-
-        importBtn.addActionListener(e -> importPriceListsWithChooser());
-        refreshBtn.addActionListener(e -> load());
-
-        JPanel top = new JPanel();
-        top.add(importBtn);
-        top.add(refreshBtn);
-        add(top, BorderLayout.NORTH);
-
-        load();
+        loadTable();
     }
 
-    private void importPriceListsWithChooser() {
-        File defaultFile = new File("pricelist.json");
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Select pricelist JSON");
-        if (defaultFile.exists()) chooser.setSelectedFile(defaultFile);
-
-        int result = chooser.showOpenDialog(this);
-        if (result != JFileChooser.APPROVE_OPTION) return;
-
-        File f = chooser.getSelectedFile();
-        importPriceLists(f.getAbsolutePath());
-    }
-
-    private void importPriceLists(String path) {
+    private void loadFromJson() {
         try {
-            controller.importPriceListsFromJson(path);
-            JOptionPane.showMessageDialog(this, "Price lists imported successfully");
-            load();
+            controller.importPriceListsFromDefaultJson();
+            JOptionPane.showMessageDialog(this, "Price list loaded successfully.");
+            loadTable();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private void load() {
+    private void loadTable() {
         model.setRowCount(0);
-        Collection<PriceList> all = controller.getAllPriceLists();
-        for (PriceList p : all) {
-            model.addRow(new Object[] { p.getId(), p.getYear(), p.getFirstHourPrice(), p.getAdditionalHourPrice(), p.getFullDayPrice() });
+       Collection<PriceList> list = controller.getAllPriceLists();
+
+        for (PriceList p : list) {
+            model.addRow(new Object[]{
+                    p.getId(),
+                    p.getYear(),
+                    p.getFirstHourPrice(),
+                    p.getAdditionalHourPrice(),
+                    p.getFullDayPrice()
+            });
         }
     }
 }

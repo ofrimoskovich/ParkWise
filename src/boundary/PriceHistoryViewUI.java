@@ -1,42 +1,107 @@
 package boundary;
 
-import java.awt.BorderLayout;
+import control.PriceHistoryManagementController;
+import control.PriceListManagementController;
+import entity.PriceHistory;
+import entity.PriceList;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
 import java.util.List;
 
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.table.DefaultTableModel;
+/**
+ * Secondary UI for assigning price lists to a parking lot
+ * and viewing price history.
+ */
+public class PriceHistoryViewUI extends JPanel {
 
-import control.PriceHistoryManagementController;
-import control.PriceHistoryRow;
+    private final int parkingLotId;
+    private final PriceHistoryManagementController historyController;
+    private final PriceListManagementController priceListController;
 
-public class PriceHistoryViewUI extends JFrame {
+    private final JComboBox<PriceList> priceListCombo = new JComboBox<>();
+    private final DefaultTableModel tableModel;
 
-	public PriceHistoryViewUI(PriceHistoryManagementController controller, int parkingLotId) {
-		setTitle("Price History – ParkingLot " + parkingLotId);
-		setSize(900, 350);
-		setLocationRelativeTo(null);
-		setLayout(new BorderLayout());
+    public PriceHistoryViewUI(int parkingLotId,
+                                    PriceHistoryManagementController historyController,
+                                    PriceListManagementController priceListController) {
 
-		DefaultTableModel model = new DefaultTableModel(
-				new Object[] { "HistoryID", "From", "To", "PriceListID", "Year", "First", "Additional", "FullDay" }, 0);
+        this.parkingLotId = parkingLotId;
+        this.historyController = historyController;
+        this.priceListController = priceListController;
 
-		JTable table = new JTable(model);
-		table.setEnabled(false);
-		add(new JScrollPane(table), BorderLayout.CENTER);
+        setLayout(new BorderLayout(10, 10));
+        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-		PriceHistoryRow active = controller.getCurrentActiveRow(parkingLotId);
-		JLabel activeLbl = new JLabel(active == null ? "Active Price: (none)"
-				: "Active Price: PriceListID=" + active.priceListId + " | Year=" + active.year);
+        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        top.add(new JLabel("Assign Price List:"));
+        top.add(priceListCombo);
 
-		add(activeLbl, BorderLayout.NORTH);
+        JButton assignBtn = new JButton("Assign");
+        assignBtn.addActionListener(e -> assignPriceList());
+        top.add(assignBtn);
 
-		List<PriceHistoryRow> rows = controller.getHistoryRows(parkingLotId);
-		for (PriceHistoryRow r : rows) {
-			model.addRow(new Object[] { r.historyId, r.from, r.to, r.priceListId, r.year, r.firstHour, r.additionalHour,
-					r.fullDay });
-		}
-	}
+        add(top, BorderLayout.NORTH);
+
+        tableModel = new DefaultTableModel(
+                new Object[]{"Price List", "From Date"}, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JTable table = new JTable(tableModel);
+        add(new JScrollPane(table), BorderLayout.CENTER);
+
+        loadPriceLists();
+        loadHistory();
+    }
+
+    private void loadPriceLists() {
+        priceListCombo.removeAllItems();
+        try {
+            for (PriceList p : priceListController.getAllPriceLists()) {
+                priceListCombo.addItem(p);
+            }
+        } catch (Exception ex) {
+            UiUtil.error(this, ex.getMessage());
+        }
+    }
+
+    private void loadHistory() {
+        tableModel.setRowCount(0);
+
+        if (parkingLotId <=0) {
+            return;
+        }
+
+        try {
+            for (PriceHistory h : historyController.getHistoryForParkingLot(parkingLotId)) {
+                tableModel.addRow(new Object[] {
+                    h.getPriceListId(),
+                    h.getEffectiveFrom(),
+                    h.getEffectiveTo()
+                });
+            }
+        } catch (Exception ex) {
+            UiUtil.error(this, ex.getMessage());
+        }
+    }
+
+    private void assignPriceList() {
+        PriceList selected = (PriceList) priceListCombo.getSelectedItem();
+        if (selected == null) {
+            UiUtil.warn(this, "Please select a price list.");
+            return;
+        }
+
+        try {
+            historyController.assignPriceListToParkingLot(
+                    parkingLotId, selected.getId());
+
+            UiUtil.info(this, "Price list assigned successfully.");
+            loadHistory();
+
+        } catch (Exception ex) {
+            UiUtil.error(this, ex.getMessage());
+        }
+    }
 }

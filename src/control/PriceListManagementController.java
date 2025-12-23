@@ -217,4 +217,24 @@ public class PriceListManagementController {
 
         throw new SQLException("Failed to retrieve generated ID for PriceList insert");
     }
+    public void importPriceListsFromDefaultJson() {
+        String path = "lib/pricelist.json";
+
+        try {
+            importPriceListsFromJson(path);
+
+        } catch (java.io.FileNotFoundException e) {
+            throw new RuntimeException(
+                    "Price list file not found at: " + path +
+                    "\nPlease make sure 'pricelist.json' exists under the lib folder.", e);
+
+        } catch (com.google.gson.JsonSyntaxException e) {
+            throw new RuntimeException(
+                    "Price list JSON file is invalid or malformed.", e);
+
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to import price list: " + e.getMessage(), e);
+        }
+    }
 }

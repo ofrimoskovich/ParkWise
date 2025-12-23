@@ -51,4 +51,5 @@ public class PriceHistory {
     public void setEffectiveTo(LocalDate effectiveTo) {
         this.effectiveTo = effectiveTo;
     }
+    
 }
