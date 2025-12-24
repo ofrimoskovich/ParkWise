@@ -8,18 +8,34 @@ public class Conveyor {
     private int x;
     private int y;
     private int maxVehicleWeightKg;
+
     private ConveyorStatus status;
 
+    // ✅ NEW: read-only outside (no setter)
+    private final ConveyorLastStatus lastStatus;
+
+    // ✅ Existing constructor (KEEP) – no break
     public Conveyor(int id, int parkingLotId, int floorNumber,
                     int x, int y, int maxVehicleWeightKg,
                     ConveyorStatus status) {
+        this(id, parkingLotId, floorNumber, x, y, maxVehicleWeightKg, status, null);
+    }
+
+    // ✅ New constructor with lastStatus (only way to set it)
+    public Conveyor(int id, int parkingLotId, int floorNumber,
+                    int x, int y, int maxVehicleWeightKg,
+                    ConveyorStatus status,
+                    ConveyorLastStatus lastStatus) {
+
         this.id = id;
         this.parkingLotId = parkingLotId;
         this.floorNumber = floorNumber;
         this.x = x;
         this.y = y;
         this.maxVehicleWeightKg = maxVehicleWeightKg;
+
         this.status = (status == null ? ConveyorStatus.Off : status);
+        this.lastStatus = lastStatus; // Operational / Testing / null
     }
 
     public int getId() { return id; }
@@ -44,8 +60,16 @@ public class Conveyor {
         this.status = (status == null ? ConveyorStatus.Off : status);
     }
 
+    // ✅ read-only (no setter!)
+    public ConveyorLastStatus getLastStatus() { return lastStatus; }
+
     @Override
     public String toString() {
-        return "Conveyor #" + id + " (Lot " + parkingLotId + ", Floor " + floorNumber + ", " + status + ")";
+        return "Conveyor #" + id +
+                " (Lot " + parkingLotId +
+                ", Floor " + floorNumber +
+                ", Status " + status +
+                ", Last " + (lastStatus == null ? "-" : lastStatus) +
+                ")";
     }
 }

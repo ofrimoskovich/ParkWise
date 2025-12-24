@@ -3,6 +3,7 @@ package boundary;
 import control.ConveyorManagementController;
 import control.ParkingLotManagementController;
 import entity.Conveyor;
+import entity.ConveyorLastStatus;
 import entity.ConveyorStatus;
 import entity.ParkingLot;
 
@@ -38,7 +39,7 @@ public class ConveyorManagementUI extends JPanel {
     private JButton deleteBtn;
     private JButton moveBtn;
 
-    // State machine actions (NO hardware tests, NO pause)
+    // State machine actions
     private JButton decideWeightBtn;
     private JButton confirmWeightBtn;
 
@@ -79,7 +80,7 @@ public class ConveyorManagementUI extends JPanel {
 
     private void initTable() {
         model = new DefaultTableModel(
-                new Object[]{"ID", "ParkingLotID", "Floor", "X", "Y", "MaxWeight", "Status"}, 0
+                new Object[]{"ID", "ParkingLotID", "Floor", "X", "Y", "MaxWeight", "Status", "LastStatus"}, 0
         ) {
             @Override public boolean isCellEditable(int row, int col) { return false; }
         };
@@ -210,7 +211,6 @@ public class ConveyorManagementUI extends JPanel {
         parkingLotBox.removeAllItems();
         if (parkingLotController == null) return;
 
-        // אם אצלך המתודה נקראת אחרת, תחליפי כאן את השורה הזו בלבד.
         for (ParkingLot p : parkingLotController.getAllParkingLots()) {
             parkingLotBox.addItem(p);
         }
@@ -222,6 +222,9 @@ public class ConveyorManagementUI extends JPanel {
 
         List<Conveyor> list = controller.getConveyorsByParkingLot(parkingLotId);
         for (Conveyor c : list) {
+
+            ConveyorLastStatus last = c.getLastStatus(); // ✅ FIX: getter בלי פרמטרים
+
             model.addRow(new Object[]{
                     c.getId(),
                     c.getParkingLotId(),
@@ -229,7 +232,8 @@ public class ConveyorManagementUI extends JPanel {
                     c.getX(),
                     c.getY(),
                     c.getMaxVehicleWeightKg(),
-                    c.getStatus()
+                    c.getStatus(),
+                    last
             });
         }
 
@@ -280,7 +284,8 @@ public class ConveyorManagementUI extends JPanel {
     }
 
     private void updateButtonsEnabled() {
-        boolean hasSelection = (getSelectedConveyorId() != null);
+        Integer sel = getSelectedConveyorId();
+        boolean hasSelection = (sel != null);
         ConveyorStatus st = getSelectedStatus();
 
         deleteBtn.setEnabled(hasSelection);
@@ -291,14 +296,10 @@ public class ConveyorManagementUI extends JPanel {
         boolean isPaused = hasSelection && st == ConveyorStatus.Paused;
 
         decideWeightBtn.setEnabled(isOff);
-        confirmWeightBtn.setEnabled(isOff && controller.getPendingWeight(getSelectedConveyorId()) != null);
+        confirmWeightBtn.setEnabled(isOff && controller.getPendingWeight(sel) != null);
 
-        turnOnBtn.setEnabled(isOff && controller.getPendingWeight(getSelectedConveyorId()) == null);
-
-        // Turn off only from Operational
+        turnOnBtn.setEnabled(isOff && controller.getPendingWeight(sel) == null);
         turnOffBtn.setEnabled(isOperational);
-
-        // Restart only from Paused (the only way out)
         restartBtn.setEnabled(isPaused);
     }
 
@@ -329,7 +330,6 @@ public class ConveyorManagementUI extends JPanel {
             int floor = parsePositiveInt(floorField, "Floor");
             int weight = parsePositiveInt(weightField, "MaxWeight");
 
-            // X,Y are external — store defaults 1,1 on creation.
             controller.addConveyorToParkingLot(lot.getId(), floor, 1, 1, weight, ConveyorStatus.Off);
 
             loadConveyors();

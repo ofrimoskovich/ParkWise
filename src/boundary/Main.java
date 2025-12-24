@@ -7,7 +7,8 @@ import control.ParkingLotManagementController;
 import control.PriceHistoryManagementController;
 import control.PriceListManagementController;
 
-import javax.swing.SwingUtilities;
+import javax.swing.*;
+import java.sql.Connection;
 
 public class Main {
 
@@ -15,29 +16,26 @@ public class Main {
 
         SwingUtilities.invokeLater(() -> {
 
-            // ===== Initialize DB =====
             AccessDb db = new AccessDb("db/parkwise_OfriMagi.accdb");
 
-            // ===== Initialize Controllers =====
-            CityManagementController cityController =
-                    new CityManagementController(db);
+            // ✅ Check DB connection early (prevents random crashes later)
+            try (Connection c = db.open()) {
+                // ok
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(null,
+                        "Database connection failed:\n" + e.getMessage(),
+                        "DB Error",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
-            ParkingLotManagementController parkingLotController =
-                    new ParkingLotManagementController(db);
+            CityManagementController cityController = new CityManagementController(db);
+            ParkingLotManagementController parkingLotController = new ParkingLotManagementController(db);
+            ConveyorManagementController conveyorController = new ConveyorManagementController(db);
+            PriceListManagementController priceListController = new PriceListManagementController(db);
+            PriceHistoryManagementController priceHistoryController = new PriceHistoryManagementController(db);
 
-            ConveyorManagementController conveyorController =
-                    new ConveyorManagementController(db);
-
-            PriceListManagementController priceListController =
-                    new PriceListManagementController(db);
-
-            PriceHistoryManagementController priceHistoryController =
-                    new PriceHistoryManagementController(db);
-
-            // ===== Open Login UI =====
             LoginUI loginUI = new LoginUI(() -> {
-
-                // on login success → open dashboard
                 ParkingLotDashboardUI dashboard =
                         new ParkingLotDashboardUI(
                                 parkingLotController,
@@ -46,7 +44,6 @@ public class Main {
                                 priceHistoryController,
                                 priceListController
                         );
-
                 dashboard.setVisible(true);
             });
 
