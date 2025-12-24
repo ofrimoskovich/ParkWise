@@ -217,8 +217,10 @@ public class PriceListManagementController {
 
         throw new SQLException("Failed to retrieve generated ID for PriceList insert");
     }
+
     public void importPriceListsFromDefaultJson() {
-        String path = "lib/pricelist.json";
+
+        String path = resolveJsonPath("lib/pricelist.json");
 
         try {
             importPriceListsFromJson(path);
@@ -236,5 +238,30 @@ public class PriceListManagementController {
             throw new RuntimeException(
                     "Failed to import price list: " + e.getMessage(), e);
         }
+    }
+
+    private String resolveJsonPath(String relativePath) {
+
+        java.nio.file.Path p = java.nio.file.Paths.get(relativePath);
+
+        if (java.nio.file.Files.exists(p))
+            return p.toAbsolutePath().toString();
+
+        java.nio.file.Path runDir =
+                java.nio.file.Paths.get(System.getProperty("user.dir")).resolve(relativePath);
+
+        if (java.nio.file.Files.exists(runDir))
+            return runDir.toAbsolutePath().toString();
+
+        java.nio.file.Path projectRoot =
+                java.nio.file.Paths.get(System.getProperty("user.dir")).getParent();
+
+        if (projectRoot != null) {
+            java.nio.file.Path rootTry = projectRoot.resolve(relativePath);
+            if (java.nio.file.Files.exists(rootTry))
+                return rootTry.toAbsolutePath().toString();
+        }
+
+        return p.toAbsolutePath().toString();
     }
 }
