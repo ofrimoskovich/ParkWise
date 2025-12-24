@@ -16,7 +16,7 @@ public class Main {
 
         SwingUtilities.invokeLater(() -> {
 
-            AccessDb db = new AccessDb("db/parkwise_OfriMagi.accdb");
+            AccessDb db = new AccessDb("db/parkwise_OfriMagi.accdb"); //יוצאות מנקודת הנחה שמריצים פה מהגיט והקובץ תמיד מחובר, לא יהיו שגיאות ולא נותנים אופציה לחפש קובץ חיצוני כי מגישים רק גיט
 
             // ✅ Check DB connection early (prevents random crashes later)
             try (Connection c = db.open()) {
