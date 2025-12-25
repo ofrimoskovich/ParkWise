@@ -16,11 +16,10 @@ public class Main {
 
         SwingUtilities.invokeLater(() -> {
 
-            AccessDb db = new AccessDb("db/parkwise_OfriMagi.accdb"); //יוצאות מנקודת הנחה שמריצים פה מהגיט והקובץ תמיד מחובר, לא יהיו שגיאות ולא נותנים אופציה לחפש קובץ חיצוני כי מגישים רק גיט
+            AccessDb db = new AccessDb("db/parkwise_OfriMagi.accdb");
 
-            // ✅ Check DB connection early (prevents random crashes later)
             try (Connection c = db.open()) {
-                // ok
+                // DB OK
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(null,
                         "Database connection failed:\n" + e.getMessage(),
@@ -36,6 +35,7 @@ public class Main {
             PriceHistoryManagementController priceHistoryController = new PriceHistoryManagementController(db);
 
             LoginUI loginUI = new LoginUI(() -> {
+
                 ParkingLotDashboardUI dashboard =
                         new ParkingLotDashboardUI(
                                 parkingLotController,
@@ -44,6 +44,7 @@ public class Main {
                                 priceHistoryController,
                                 priceListController
                         );
+
                 dashboard.setVisible(true);
             });
 

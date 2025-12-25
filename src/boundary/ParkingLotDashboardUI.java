@@ -14,6 +14,17 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
+/**
+ * ParkingLotDashboardUI
+ *
+ * שינוי דרישה:
+ * - כתובת התפצלה לשני שדות: Street + Number
+ * - נוספה בדיקת קלט למספר (לא לקרוס אם לא int)
+ *
+ * חשוב:
+ * - לא שינינו שום מסכים אחרים.
+ * - הטבלה עדיין מציגה "Address" כמחרוזת מאוחדת (getAddress()).
+ */
 public class ParkingLotDashboardUI extends JFrame {
 
     private final ParkingLotManagementController parkingLotController;
@@ -29,7 +40,11 @@ public class ParkingLotDashboardUI extends JFrame {
 
     private JTextField idField;
     private JTextField nameField;
-    private JTextField addressField;
+
+    // ✅ NEW split address fields
+    private JTextField streetField;
+    private JTextField numberField;
+
     private JTextField spacesField;
     private JComboBox<City> cityCombo;
 
@@ -113,13 +128,16 @@ public class ParkingLotDashboardUI extends JFrame {
         });
 
         // ================= FORM =================
-        JPanel form = new JPanel(new GridLayout(5, 2, 8, 8));
+        JPanel form = new JPanel(new GridLayout(6, 2, 8, 8));
 
         idField = new JTextField();
         idField.setEditable(false);
 
         nameField = new JTextField();
-        addressField = new JTextField();
+
+        // ✅ NEW fields
+        streetField = new JTextField();
+        numberField = new JTextField();
 
         spacesField = new JTextField();
         spacesField.setEditable(false);
@@ -128,12 +146,19 @@ public class ParkingLotDashboardUI extends JFrame {
 
         form.add(new JLabel("ID"));
         form.add(idField);
+
         form.add(new JLabel("Name"));
         form.add(nameField);
-        form.add(new JLabel("Address"));
-        form.add(addressField);
+
+        form.add(new JLabel("Street"));
+        form.add(streetField);
+
+        form.add(new JLabel("Number"));
+        form.add(numberField);
+
         form.add(new JLabel("City"));
         form.add(cityCombo);
+
         form.add(new JLabel("Available Spaces"));
         form.add(spacesField);
 
@@ -179,7 +204,7 @@ public class ParkingLotDashboardUI extends JFrame {
             model.addRow(new Object[]{
                     p.getId(),
                     p.getName(),
-                    p.getAddress(),
+                    p.getAddress(), // stays combined in table
                     p.getCity(),
                     p.getAvailableSpaces()
             });
@@ -195,7 +220,10 @@ public class ParkingLotDashboardUI extends JFrame {
 
         idField.setText(String.valueOf(selectedParkingLot.getId()));
         nameField.setText(selectedParkingLot.getName());
-        addressField.setText(selectedParkingLot.getAddress());
+
+        streetField.setText(selectedParkingLot.getStreet() == null ? "" : selectedParkingLot.getStreet());
+        numberField.setText(selectedParkingLot.getNumber() == null ? "" : String.valueOf(selectedParkingLot.getNumber()));
+
         cityCombo.setSelectedItem(selectedParkingLot.getCity());
         spacesField.setText(String.valueOf(selectedParkingLot.getAvailableSpaces()));
     }
@@ -223,13 +251,18 @@ public class ParkingLotDashboardUI extends JFrame {
 
     private void addParkingLot() {
         try {
+            Integer number = parsePositiveIntOrShow(numberField, "Number");
+            if (number == null) return;
+
             parkingLotController.addParkingLot(
                     nameField.getText(),
-                    addressField.getText(),
+                    streetField.getText(),
+                    number,
                     (City) cityCombo.getSelectedItem(),
                     Integer.parseInt(spacesField.getText())
             );
             loadParkingLots();
+
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -242,14 +275,19 @@ public class ParkingLotDashboardUI extends JFrame {
         }
 
         try {
+            Integer number = parsePositiveIntOrShow(numberField, "Number");
+            if (number == null) return;
+
             parkingLotController.updateParkingLot(
                     selectedParkingLot.getId(),
                     nameField.getText(),
-                    addressField.getText(),
+                    streetField.getText(),
+                    number,
                     (City) cityCombo.getSelectedItem()
             );
             JOptionPane.showMessageDialog(this, "Parking lot updated successfully.");
             loadParkingLots();
+
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -265,6 +303,26 @@ public class ParkingLotDashboardUI extends JFrame {
 
             parkingLotController.deleteParkingLot(selectedParkingLot.getId());
             loadParkingLots();
+        }
+    }
+
+    /**
+     * בדיקת קלט נקודתית:
+     * - אם לא מספר → הודעה למשתמש ולא לקרוס
+     */
+    private Integer parsePositiveIntOrShow(JTextField tf, String fieldName) {
+        String raw = tf.getText() == null ? "" : tf.getText().trim();
+        if (raw.isEmpty()) {
+            JOptionPane.showMessageDialog(this, fieldName + " is required.", "Validation", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        try {
+            int v = Integer.parseInt(raw);
+            if (v <= 0) throw new NumberFormatException();
+            return v;
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, fieldName + " must be a valid positive integer.", "Validation", JOptionPane.WARNING_MESSAGE);
+            return null;
         }
     }
 

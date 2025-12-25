@@ -8,6 +8,15 @@ import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * ConveyorManagementController
+ *
+ * שינוי דרישה:
+ * - בשלב ADD או MOVE: Floor/X/Y מוגדרים ל-NULL (לא 1), והמנהל לא קובע אותם.
+ * - Floor/X/Y יכולים להיות NULL גם בקריאה (ResultSet) ולכן נשמרים כ-Integer ב-entity.
+ *
+ * שאר הלוגיקה (state machine + pending weight + lastStatus) נשארת בדיוק כמו שהיה.
+ */
 public class ConveyorManagementController {
 
     private final AccessDb db;
@@ -29,21 +38,19 @@ public class ConveyorManagementController {
     // =========================
 
     public Conveyor addConveyorToParkingLot(int parkingLotId,
-                                           int floorNumber,
-                                           int x,
-                                           int y,
+                                           int floorNumber, // נשמר חתימה קיימת (לא בשימוש יותר)
+                                           int x,          // נשמר חתימה קיימת (לא בשימוש יותר)
+                                           int y,          // נשמר חתימה קיימת (לא בשימוש יותר)
                                            int maxVehicleWeightKg,
                                            ConveyorStatus status) {
         ensureDb();
 
         if (parkingLotId <= 0) throw new IllegalArgumentException("ParkingLotID must be positive.");
-        if (floorNumber <= 0) throw new IllegalArgumentException("Floor must be positive.");
-        if (x <= 0) throw new IllegalArgumentException("X must be positive.");
-        if (y <= 0) throw new IllegalArgumentException("Y must be positive.");
         if (maxVehicleWeightKg <= 0) throw new IllegalArgumentException("MaxWeight must be positive.");
 
         if (status == null) status = ConveyorStatus.Off;
 
+        // ✅ NEW: On creation Floor/X/Y are NULL (manager cannot set them)
         // On creation: Status=Off, LastStatus=NULL
         String sql = "INSERT INTO Conveyor ([ParkingLotID],[Floor],[X],[Y],[MaxWeight],[Status],[LastStatus]) VALUES (?,?,?,?,?,?,?)";
 
@@ -51,9 +58,12 @@ public class ConveyorManagementController {
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setInt(1, parkingLotId);
-            ps.setInt(2, floorNumber);
-            ps.setInt(3, x);
-            ps.setInt(4, y);
+
+            // Floor/X/Y => NULL
+            ps.setNull(2, Types.INTEGER);
+            ps.setNull(3, Types.INTEGER);
+            ps.setNull(4, Types.INTEGER);
+
             ps.setInt(5, maxVehicleWeightKg);
             ps.setString(6, status.name());
             ps.setString(7, null);
@@ -66,7 +76,7 @@ public class ConveyorManagementController {
             pendingWeightById.remove(newId);
 
             // lastStatus starts as null
-            return new Conveyor(newId, parkingLotId, floorNumber, x, y, maxVehicleWeightKg, status, null);
+            return new Conveyor(newId, parkingLotId, null, null, null, maxVehicleWeightKg, status, null);
 
         } catch (SQLException e) {
             throw new RuntimeException("Failed to add conveyor: " + e.getMessage(), e);
@@ -91,9 +101,11 @@ public class ConveyorManagementController {
 
                     int id = rs.getInt("ID");
                     int lotId = rs.getInt("ParkingLotID");
-                    int floor = rs.getInt("Floor");
-                    int x = rs.getInt("X");
-                    int y = rs.getInt("Y");
+
+                    Integer floor = getNullableInt(rs, "Floor");
+                    Integer x = getNullableInt(rs, "X");
+                    Integer y = getNullableInt(rs, "Y");
+
                     int maxW = rs.getInt("MaxWeight");
 
                     ConveyorStatus status = parseStatus(rs.getString("Status"));
@@ -101,7 +113,6 @@ public class ConveyorManagementController {
 
                     attemptCountById.putIfAbsent(id, 0);
 
-                    // ✅ now Conveyor contains lastStatus (read-only outside)
                     list.add(new Conveyor(id, lotId, floor, x, y, maxW, status, lastStatus));
                 }
             }
@@ -119,15 +130,18 @@ public class ConveyorManagementController {
         requirePositiveId(conveyorId);
         if (newParkingLotId <= 0) throw new IllegalArgumentException("New ParkingLotID must be positive.");
 
+        // ✅ NEW: when moving, Floor/X/Y become NULL (manager cannot set)
         String sql = "UPDATE Conveyor SET [ParkingLotID]=?, [X]=?, [Y]=?, [Floor]=? WHERE [ID]=?";
 
         try (Connection conn = db.open();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, newParkingLotId);
-            ps.setInt(2, 1);
-            ps.setInt(3, 1);
-            ps.setInt(4, 1);
+
+            ps.setNull(2, Types.INTEGER);
+            ps.setNull(3, Types.INTEGER);
+            ps.setNull(4, Types.INTEGER);
+
             ps.setInt(5, conveyorId);
 
             int updated = ps.executeUpdate();
@@ -326,9 +340,11 @@ public class ConveyorManagementController {
                 if (!rs.next()) throw new IllegalArgumentException("Conveyor not found: " + id);
 
                 int lotId = rs.getInt("ParkingLotID");
-                int floor = rs.getInt("Floor");
-                int x = rs.getInt("X");
-                int y = rs.getInt("Y");
+
+                Integer floor = getNullableInt(rs, "Floor");
+                Integer x = getNullableInt(rs, "X");
+                Integer y = getNullableInt(rs, "Y");
+
                 int maxW = rs.getInt("MaxWeight");
 
                 ConveyorStatus status = parseStatus(rs.getString("Status"));
@@ -376,5 +392,14 @@ public class ConveyorManagementController {
             } catch (Exception ignore) {}
         }
         return newId;
+    }
+
+    /**
+     * קריאה בטוחה של INT nullable מתוך ResultSet.
+     */
+    private Integer getNullableInt(ResultSet rs, String col) throws SQLException {
+        Object o = rs.getObject(col);
+        if (o == null) return null;
+        return ((Number) o).intValue();
     }
 }

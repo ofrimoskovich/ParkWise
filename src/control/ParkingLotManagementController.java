@@ -10,13 +10,14 @@ import entity.ParkingLot;
 /**
  * ParkingLotManagementController
  * ------------------------------
- * Works with Access table ParkingLot:
- *   ParkingLot(ID, name, addres, cityID, availablaSpaces)
+ * Works with Access table ParkingLot.
  *
- * IMPORTANT RULES (per requirements):
- * - ID is AutoNumber (no manual set)
- * - Update: only name/address/city can change (availableSpaces is NOT updated here)
- * - availableSpaces is loaded from DB and shown, but not editable in update.
+ * שינוי דרישה:
+ * - כתובת התפצלה ל: street + number
+ *
+ * חשוב:
+ * - לא נוגעים בלוגיקה מעבר לזה.
+ * - availableSpaces נשאר כמו שהיה (מוגדר ב-INSERT, לא מתעדכן ב-UPDATE).
  */
 public class ParkingLotManagementController {
 
@@ -34,32 +35,37 @@ public class ParkingLotManagementController {
      * Adds a new ParkingLot (ID AutoNumber).
      * Note: availableSpaces is allowed on INSERT (initial value).
      */
-    public ParkingLot addParkingLot(String name, String address, City city, int availableSpaces) {
+    public ParkingLot addParkingLot(String name, String street, Integer number, City city, int availableSpaces) {
         ensureDb();
 
         String n = name == null ? "" : name.trim();
-        String a = address == null ? "" : address.trim();
+        String s = street == null ? "" : street.trim();
+
         if (n.isEmpty()) throw new IllegalArgumentException("Parking lot name is required.");
-        if (a.isEmpty()) throw new IllegalArgumentException("Parking lot address is required.");
+        if (s.isEmpty()) throw new IllegalArgumentException("Street is required.");
+        if (number == null) throw new IllegalArgumentException("Number is required.");
+        if (number <= 0) throw new IllegalArgumentException("Number must be positive.");
         if (city == null) throw new IllegalArgumentException("City is required.");
         if (availableSpaces < 0) throw new IllegalArgumentException("Available spaces must be 0 or higher.");
 
+        // ✅ NEW columns: street + number
         final String sql =
-                "INSERT INTO ParkingLot ([name],[addres],[cityID],[availablaSpaces]) VALUES (?,?,?,?)";
+                "INSERT INTO ParkingLot ([name],[street],[number],[cityID],[availablaSpaces]) VALUES (?,?,?,?,?)";
 
         try (Connection conn = db.open();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, n);
-            ps.setString(2, a);
-            ps.setInt(3, city.getId());
-            ps.setInt(4, availableSpaces);
+            ps.setString(2, s);
+            ps.setInt(3, number);
+            ps.setInt(4, city.getId());
+            ps.setInt(5, availableSpaces);
             ps.executeUpdate();
 
             int newId = readGeneratedId(ps, conn);
             if (newId <= 0) throw new RuntimeException("Insert succeeded but could not read generated ID");
 
-            return new ParkingLot(newId, n, a, city, availableSpaces);
+            return new ParkingLot(newId, n, s, number, city, availableSpaces);
 
         } catch (SQLException e) {
             throw new RuntimeException("Failed to add parking lot: " + e.getMessage(), e);
@@ -68,28 +74,32 @@ public class ParkingLotManagementController {
 
     /**
      * Updates ParkingLot by ID:
-     * - updates ONLY name/address/cityID
+     * - updates ONLY name/street/number/cityID
      * - does NOT change availableSpaces
      */
-    public void updateParkingLot(int id, String name, String address, City city) {
+    public void updateParkingLot(int id, String name, String street, Integer number, City city) {
         ensureDb();
 
         String n = name == null ? "" : name.trim();
-        String a = address == null ? "" : address.trim();
+        String s = street == null ? "" : street.trim();
+
         if (n.isEmpty()) throw new IllegalArgumentException("Parking lot name is required.");
-        if (a.isEmpty()) throw new IllegalArgumentException("Parking lot address is required.");
+        if (s.isEmpty()) throw new IllegalArgumentException("Street is required.");
+        if (number == null) throw new IllegalArgumentException("Number is required.");
+        if (number <= 0) throw new IllegalArgumentException("Number must be positive.");
         if (city == null) throw new IllegalArgumentException("City is required.");
 
         final String sql =
-                "UPDATE ParkingLot SET [name]=?, [addres]=?, [cityID]=? WHERE [ID]=?";
+                "UPDATE ParkingLot SET [name]=?, [street]=?, [number]=?, [cityID]=? WHERE [ID]=?";
 
         try (Connection conn = db.open();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, n);
-            ps.setString(2, a);
-            ps.setInt(3, city.getId());
-            ps.setInt(4, id);
+            ps.setString(2, s);
+            ps.setInt(3, number);
+            ps.setInt(4, city.getId());
+            ps.setInt(5, id);
 
             int updated = ps.executeUpdate();
             if (updated == 0) throw new IllegalArgumentException("ParkingLot not found: " + id);
@@ -122,7 +132,7 @@ public class ParkingLotManagementController {
         ensureDb();
 
         final String sql =
-                "SELECT p.[ID], p.[name], p.[addres], p.[availablaSpaces], " +
+                "SELECT p.[ID], p.[name], p.[street], p.[number], p.[availablaSpaces], " +
                 "       c.[ID] AS CityID, c.[cityName] AS CityName " +
                 "FROM ParkingLot p " +
                 "LEFT JOIN City c ON p.[cityID] = c.[ID] " +
@@ -142,10 +152,16 @@ public class ParkingLotManagementController {
                     city = new City(cityId, rs.getString("CityName"));
                 }
 
+                String street = rs.getString("street");
+                Integer number = null;
+                Object numObj = rs.getObject("number");
+                if (numObj != null) number = ((Number) numObj).intValue();
+
                 return new ParkingLot(
                         rs.getInt("ID"),
                         rs.getString("name"),
-                        rs.getString("addres"),
+                        street,
+                        number,
                         city,
                         rs.getInt("availablaSpaces")
                 );
@@ -165,7 +181,7 @@ public class ParkingLotManagementController {
         List<ParkingLot> lots = new ArrayList<>();
 
         final String sql =
-                "SELECT p.[ID], p.[name], p.[addres], p.[availablaSpaces], " +
+                "SELECT p.[ID], p.[name], p.[street], p.[number], p.[availablaSpaces], " +
                 "       c.[ID] AS CityID, c.[cityName] AS CityName " +
                 "FROM ParkingLot p " +
                 "LEFT JOIN City c ON p.[cityID] = c.[ID] " +
@@ -182,10 +198,16 @@ public class ParkingLotManagementController {
                     city = new City(cityId, rs.getString("CityName"));
                 }
 
+                String street = rs.getString("street");
+                Integer number = null;
+                Object numObj = rs.getObject("number");
+                if (numObj != null) number = ((Number) numObj).intValue();
+
                 lots.add(new ParkingLot(
                         rs.getInt("ID"),
                         rs.getString("name"),
-                        rs.getString("addres"),
+                        street,
+                        number,
                         city,
                         rs.getInt("availablaSpaces")
                 ));

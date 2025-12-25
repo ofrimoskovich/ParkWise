@@ -12,7 +12,18 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
-
+/**
+ * ConveyorManagementUI
+ *
+ * שינוי דרישה:
+ * - Floor/X/Y הם שדות שמוגדרים ל-NULL בהוספה/העברה, והמנהל לא קובע אותם.
+ * - לכן:
+ *   - Floor field הופך read-only (לא נדרש קלט)
+ *   - X/Y נשארים read-only (ויכולים להיות ריקים אם NULL)
+ * - נעשתה הגנת קלט למשקל: אם לא int → הודעה ולא לקרוס.
+ *
+ * שאר ההתנהגות (pending weight + state machine) נשארת בדיוק כמו שהיה.
+ */
 public class ConveyorManagementUI extends JPanel {
 
     private final ConveyorManagementController controller;
@@ -25,9 +36,9 @@ public class ConveyorManagementUI extends JPanel {
 
     private JComboBox<ParkingLot> parkingLotBox;
 
-    private JTextField floorField;
-    private JTextField xField; // read-only
-    private JTextField yField; // read-only
+    private JTextField floorField; // now read-only
+    private JTextField xField;     // read-only
+    private JTextField yField;     // read-only
     private JTextField weightField;
 
     private JLabel selectedInfoLabel;
@@ -104,7 +115,9 @@ public class ConveyorManagementUI extends JPanel {
 
         parkingLotBox = new JComboBox<>();
 
-        floorField = new JTextField("1");
+        floorField = new JTextField();
+        floorField.setEditable(false);
+        floorField.setBackground(new Color(240, 240, 240));
 
         xField = new JTextField();
         xField.setEditable(false);
@@ -132,7 +145,7 @@ public class ConveyorManagementUI extends JPanel {
         form.add(refreshBtn);
         form.add(new JLabel(""));
 
-        form.add(new JLabel("Floor:"));
+        form.add(new JLabel("Floor (read-only):"));
         form.add(floorField);
         form.add(new JLabel("X (read-only):"));
         form.add(xField);
@@ -186,7 +199,7 @@ public class ConveyorManagementUI extends JPanel {
             if (!e.getValueIsAdjusting()) {
                 updateSelectedInfo();
                 updateButtonsEnabled();
-                updateReadOnlyXYFields();
+                updateReadOnlyFields();
             }
         });
     }
@@ -194,12 +207,12 @@ public class ConveyorManagementUI extends JPanel {
     private void setPanelEnabled(boolean enabled) {
         table.setEnabled(enabled);
         parkingLotBox.setEnabled(enabled);
-        floorField.setEnabled(enabled);
         weightField.setEnabled(enabled);
 
         addBtn.setEnabled(enabled);
         refreshBtn.setEnabled(enabled);
 
+        floorField.setEnabled(enabled);
         xField.setEnabled(enabled);
         yField.setEnabled(enabled);
 
@@ -224,14 +237,14 @@ public class ConveyorManagementUI extends JPanel {
         List<Conveyor> list = controller.getConveyorsByParkingLot(parkingLotId);
         for (Conveyor c : list) {
 
-            ConveyorLastStatus last = c.getLastStatus(); // ✅ FIX: getter בלי פרמטרים
+            ConveyorLastStatus last = c.getLastStatus();
 
             model.addRow(new Object[]{
                     c.getId(),
                     c.getParkingLotId(),
-                    c.getFloorNumber(),
-                    c.getX(),
-                    c.getY(),
+                    c.getFloorNumber(),  // can be null
+                    c.getX(),            // can be null
+                    c.getY(),            // can be null
                     c.getMaxVehicleWeightKg(),
                     c.getStatus(),
                     last
@@ -240,7 +253,7 @@ public class ConveyorManagementUI extends JPanel {
 
         updateSelectedInfo();
         updateButtonsEnabled();
-        updateReadOnlyXYFields();
+        updateReadOnlyFields();
     }
 
     // ========================= Selection helpers =========================
@@ -248,7 +261,8 @@ public class ConveyorManagementUI extends JPanel {
     private Integer getSelectedConveyorId() {
         int row = table.getSelectedRow();
         if (row < 0) return null;
-        return (Integer) model.getValueAt(row, 0);
+        Object v = model.getValueAt(row, 0);
+        return (v instanceof Integer) ? (Integer) v : null;
     }
 
     private ConveyorStatus getSelectedStatus() {
@@ -273,15 +287,22 @@ public class ConveyorManagementUI extends JPanel {
         pendingInfoLabel.setText("Pending weight: " + (pending == null ? "-" : pending));
     }
 
-    private void updateReadOnlyXYFields() {
+    private void updateReadOnlyFields() {
         int row = table.getSelectedRow();
         if (row < 0) {
+            floorField.setText("");
             xField.setText("");
             yField.setText("");
             return;
         }
-        xField.setText(String.valueOf(model.getValueAt(row, 3)));
-        yField.setText(String.valueOf(model.getValueAt(row, 4)));
+
+        Object floor = model.getValueAt(row, 2);
+        Object x = model.getValueAt(row, 3);
+        Object y = model.getValueAt(row, 4);
+
+        floorField.setText(floor == null ? "" : String.valueOf(floor));
+        xField.setText(x == null ? "" : String.valueOf(x));
+        yField.setText(y == null ? "" : String.valueOf(y));
     }
 
     private void updateButtonsEnabled() {
@@ -306,13 +327,23 @@ public class ConveyorManagementUI extends JPanel {
 
     // ========================= Actions =========================
 
-    private int parsePositiveInt(JTextField tf, String name) {
+    /**
+     * בדיקת קלט למשקל:
+     * - אם לא מספר/לא חיובי → הודעה ולא לקרוס
+     */
+    private Integer parsePositiveIntOrShow(JTextField tf, String name) {
+        String raw = tf.getText() == null ? "" : tf.getText().trim();
+        if (raw.isEmpty()) {
+            JOptionPane.showMessageDialog(this, name + " is required.", "Validation", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
         try {
-            int v = Integer.parseInt(tf.getText().trim());
+            int v = Integer.parseInt(raw);
             if (v <= 0) throw new NumberFormatException();
             return v;
-        } catch (Exception ex) {
-            throw new IllegalArgumentException(name + " must be a positive integer.");
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, name + " must be a valid positive integer.", "Validation", JOptionPane.WARNING_MESSAGE);
+            return null;
         }
     }
 
@@ -328,10 +359,11 @@ public class ConveyorManagementUI extends JPanel {
                 return;
             }
 
-            int floor = parsePositiveInt(floorField, "Floor");
-            int weight = parsePositiveInt(weightField, "MaxWeight");
+            Integer weight = parsePositiveIntOrShow(weightField, "MaxWeight");
+            if (weight == null) return;
 
-            controller.addConveyorToParkingLot(lot.getId(), floor, 1, 1, weight, ConveyorStatus.Off);
+            // ✅ floor/x/y ignored by controller and saved as NULL per requirement
+            controller.addConveyorToParkingLot(lot.getId(), 1, 1, 1, weight, ConveyorStatus.Off);
 
             loadConveyors();
             weightField.setText("");
@@ -376,7 +408,9 @@ public class ConveyorManagementUI extends JPanel {
         if (id == null) return;
 
         try {
-            int w = parsePositiveInt(weightField, "MaxWeight");
+            Integer w = parsePositiveIntOrShow(weightField, "MaxWeight");
+            if (w == null) return;
+
             controller.decideChangeMaxWeight(id, w);
             updateSelectedInfo();
             updateButtonsEnabled();
