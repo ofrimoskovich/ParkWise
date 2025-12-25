@@ -1,46 +1,69 @@
 package control;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-/**
- * Centralized Access (ACCDB) connection helper.
- *
- * Runtime requirement: Add UCanAccess (ucanaccess + dependencies) to your
- * Eclipse build path.
- *
- * This class does NOT reference UCanAccess classes directly, so the project
- * compiles even if the jars are not present; they are required at runtime when
- * opening a connection.
- */
 public final class AccessDb {
 
-	private String accdbPath;
+    private String accdbPath;
 
-	/**
-	 * @param accdbPath Path to .accdb file (absolute or relative to project run
-	 *                  directory)
-	 */
-	public AccessDb(String accdbPath) {
-		this.accdbPath = accdbPath;
-	}
+    public AccessDb(String accdbPath) {
+        this.accdbPath = accdbPath;
+    }
 
-	public String getAccdbPath() {
-		return accdbPath;
-	}
+    public String getAccdbPath() {
+        return accdbPath;
+    }
 
-	public void setAccdbPath(String accdbPath) {
-		this.accdbPath = accdbPath;
-	}
+    public void setAccdbPath(String accdbPath) {
+        this.accdbPath = accdbPath;
+    }
 
-	/**
-	 * Opens a new JDBC Connection to Access using UCanAccess.
-	 */
-	public Connection open() throws SQLException {
-		String normalized = Path.of(accdbPath).toAbsolutePath().toString();
-		String url = "jdbc:ucanaccess://" + normalized;
-		return DriverManager.getConnection(url);
-	}
+    /**
+     * Opens a new JDBC Connection to Access using UCanAccess.
+     * This method guarantees that the DB file is resolved correctly
+     * regardless of Eclipse / Git / run location.
+     */
+    public Connection open() throws SQLException {
+
+        Path resolved = resolveAccdbPath(accdbPath);
+
+        if (!Files.exists(resolved)) {
+            throw new SQLException("Access DB file not found at: " + resolved.toAbsolutePath());
+        }
+
+        String url = "jdbc:ucanaccess://" + resolved.toAbsolutePath();
+        return DriverManager.getConnection(url);
+    }
+
+    /**
+     * Makes the DB path stable for all machines and run locations.
+     */
+    private Path resolveAccdbPath(String path) {
+
+        Path p = Paths.get(path);
+
+        if (p.isAbsolute())
+            return p;
+
+        // Try working directory (Eclipse Run)
+        Path runDir = Paths.get(System.getProperty("user.dir")).resolve(path);
+        if (Files.exists(runDir))
+            return runDir;
+
+        // Try project root (when running from /bin or /src)
+        Path projectRoot = Paths.get(System.getProperty("user.dir")).getParent();
+        if (projectRoot != null) {
+            Path rootTry = projectRoot.resolve(path);
+            if (Files.exists(rootTry))
+                return rootTry;
+        }
+
+        // Fallback – original path (will throw error later)
+        return p;
+    }
 }

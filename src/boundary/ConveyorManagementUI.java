@@ -12,6 +12,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
+
 public class ConveyorManagementUI extends JPanel {
 
     private final ConveyorManagementController controller;
